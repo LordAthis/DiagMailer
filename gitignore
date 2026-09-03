@@ -1,0 +1,10 @@
+# DiagMailer .gitignore
+# config.json tartalmaz email-cíomet és SMTP-jelszót (DPAPI titkosított) –
+# SOHA ne kerüljön a repóba! Csak a .example marad meg.
+
+config.json
+
+# Ideiglenes fájlok
+*.tmp
+_reports/
+*.zip

@@ -1,0 +1,78 @@
+{
+  "_info": [
+    "DiagMailer konfigurációs sablon",
+    "1. Másold át: config.json.example  ->  config.json",
+    "2. Töltsd ki a saját adataiddal",
+    "3. config.json SOHA ne kerüljön a repóba! Vedd fel a .gitignore-ba!",
+    "Az aláhúzásos (_) kulcsok csak megjegyzések, a szkript nem olvassa őket."
+  ],
+
+  "_kötelező_mezők": "---- Ezeket MINDENKÉPP töltsd ki! ----",
+
+  "reportEmail":  "minta@szerviz.com",
+  "fromEmail":    "kuldo@gmail.com",
+  "smtpServer":   "smtp.gmail.com",
+  "smtpPort":     587,
+
+  "_opcionális_mezők": "---- Ezek alapértelmezettje működőképes ----",
+
+  "fromName":     "DiagMailer",
+  "subject":      "DiagMailer Jelentés",
+  "useSSL":       true,
+  "logFolder":    "..\\LOG",
+  "requireAdmin": false,
+
+  "_smtp_példák": {
+    "_megjegyzés":   "Másold a megfelelőt a fenti mezőkbe",
+
+    "Gmail": {
+      "smtpServer": "smtp.gmail.com",
+      "smtpPort":   587,
+      "useSSL":     true,
+      "_fontos":    "Google-fiók jelszava NEM jó! App-jelszót kell generálni:",
+      "_link":      "https://myaccount.google.com/apppasswords  (2FA bekapcsolt állapotban)"
+    },
+
+    "Office365": {
+      "smtpServer": "smtp.office365.com",
+      "smtpPort":   587,
+      "useSSL":     true
+    },
+
+    "Outlook.com (személyes)": {
+      "smtpServer": "smtp-mail.outlook.com",
+      "smtpPort":   587,
+      "useSSL":     true
+    },
+
+    "Zoho Mail": {
+      "smtpServer": "smtp.zoho.eu",
+      "smtpPort":   587,
+      "useSSL":     true
+    },
+
+    "Brevo (SendinBlue) – ingyenes 300 email/nap": {
+      "smtpServer": "smtp-relay.brevo.com",
+      "smtpPort":   587,
+      "useSSL":     true,
+      "_felhasznalo": "a Brevo-fiók email SMTP login oldalán generált API-kulcs"
+    },
+
+    "Saját/céges SMTP szerver": {
+      "smtpServer": "mail.sajatceg.hu",
+      "smtpPort":   587,
+      "useSSL":     true
+    }
+  },
+
+  "_mezők_magyarázata": {
+    "reportEmail":  "IDE küldünk – a szervizes email cím (TO:)",
+    "fromEmail":    "ERRŐL küldjük – az SMTP-hozzáférésű fiók (FROM: és a Get-Credential username)",
+    "smtpServer":   "SMTP kiszolgáló host neve",
+    "smtpPort":     "587 = TLS/STARTTLS (ajánlott) | 465 = SSL | 25 = nem titkosított (kerülendő)",
+    "useSSL":       "true = titkosított (ajánlott), false = titkosítatlan",
+    "logFolder":    "Relatív (..\\LOG) vagy abszolút (C:\\Logs) elérési út",
+    "requireAdmin": "true = emelt jogosultság kell a LOG mappához (pl. system logok)",
+    "fromName":     "A küldő megjelenítési neve az emailben"
+  }
+}
