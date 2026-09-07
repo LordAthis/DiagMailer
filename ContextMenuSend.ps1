@@ -31,10 +31,17 @@ $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.Win
 $isAdmin          = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
-    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -TargetDir `"$TargetDir`""
+    # Tombot hasznalunk - egyszeru string szokoznél rosszul darabolja az utvonalakat!
+    $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-TargetDir", $TargetDir)
     Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
     exit 0
 }
+
+# ===========================================================
+#  BEÁLLÍTÁSOK
+# ===========================================================
+ 
+$script:Version        = "3.3.1"
 
 # ===========================================================
 #  SEGÉDFÜGGVÉNYEK
@@ -136,7 +143,12 @@ Write-Host ""
 Write-Step "SendReport.ps1 indul..."
 Write-Host ""
 
-& $sendScript -ConfigPath $configPath -LogFolder $logFolder
+# Splatting: szokos utvonalaknal biztonságos, nem darabolja fel a parametereket
+$sendParams = @{
+    ConfigPath = $configPath
+    LogFolder  = $logFolder
+}
+& $sendScript @sendParams
 
 # ── 5. Várakozás bezárás előtt ────────────────────────────────────
 Write-Host ""
