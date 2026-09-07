@@ -1,4 +1,4 @@
-#Requires -Version 3.3
+#Requires -Version 3.0
 <#
 .SYNOPSIS
     DiagMailer - Jobb klikk kontextusmenü telepítő / eltávolító
