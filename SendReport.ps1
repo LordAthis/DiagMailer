@@ -1,4 +1,4 @@
-#Requires -Version 3.3
+#Requires -Version 3.0
 <#
 .SYNOPSIS
     DiagMailer - LOG jelentés küldő
