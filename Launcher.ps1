@@ -1,87 +1,75 @@
 #Requires -Version 3.0
 <#
 .SYNOPSIS
-    DiagMailer Launcher – Közvetlen belépési pont, jogosultság kezelés
-
+    DiagMailer Launcher – Közvetlen belépési pont, automatikus jogosultság emelés
 .DESCRIPTION
-    Önálló futtatáshoz: kicsit körülnéz, emeli a jogosultságot ha kell,
-    majd meghívja a SendReport.ps1-et.
-
-    Más REPÓ-kból való automatizált híváshoz inkább az Invoke-DiagMailer.ps1-t
-    vagy közvetlenül a SendReport.ps1-t érdemes hívni.
-
+    Önálló futtatáshoz: automatikusan emeli a jogosultságot, majd meghívja a SendReport.ps1-et.
+    A SendReport.ps1 saját maga is elvégzi az emelést, de a Launcher ezt ELŐBB csinálja meg,
+    így a felhasználónak elegendő csak a Launcher.ps1-et futtatni.
+    Más REPÓ-kból való híváshoz az Invoke-DiagMailer.ps1-t érdemes használni.
 .PARAMETER ConfigPath
     A config.json elérési útja.
-
 .PARAMETER ForceCredential
     Újra bekéri a jelszót, figyelmen kívül hagyja a tároltat.
-
 .PARAMETER DeleteLogsAfterSend
     Küldés után törli a LOG fájlokat.
-
-.PARAMETER SkipElevation
-    Nem próbálja meg emelni a jogosultságot (pl. már admin kontextusból hívva).
-
 .EXAMPLE
     .\Launcher.ps1
     .\Launcher.ps1 -ForceCredential
-    .\Launcher.ps1 -DeleteLogsAfterSend -SkipElevation
+    .\Launcher.ps1 -ConfigPath "D:\sajat\config.json" -DeleteLogsAfterSend
 #>
 
 param(
-    [string]$ConfigPath       = "$PSScriptRoot\config.json",
+    [string]$ConfigPath        = "$PSScriptRoot\config.json",
     [switch]$ForceCredential,
-    [switch]$DeleteLogsAfterSend,
-    [switch]$SkipElevation
+    [switch]$DeleteLogsAfterSend
 )
 
-# ── Útvonalak ─────────────────────────────────────────────────────
-$SendReportScript = Join-Path $PSScriptRoot "SendReport.ps1"
+# ===========================================================
+#  AUTOMATIKUS JOGOSULTSÁG EMELÉS
+#  Mindig elvégzi, nem függ a config requireAdmin mezőjétől.
+#  Ha már admin, átugorja és rögtön hívja a SendReport.ps1-et.
+# ===========================================================
 
-# ── SendReport.ps1 meglétének ellenőrzése ─────────────────────────
-if (-not (Test-Path $SendReportScript)) {
+$currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+$isAdmin          = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
     Write-Host ""
-    Write-Host "  ✗ SendReport.ps1 nem található!" -ForegroundColor Red
-    Write-Host "    Várt helye: $SendReportScript" -ForegroundColor DarkGray
-    Write-Host "    A DiagMailer telepítése hiányos lehet." -ForegroundColor DarkGray
-    Write-Host ""
-    exit 1
-}
+    Write-Host "  [Launcher] Emelt jogosultsag szukseges - ujrainditom..." -ForegroundColor Yellow
 
-# ── Admin ellenőrzés ──────────────────────────────────────────────
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-    [Security.Principal.WindowsBuiltInRole]::Administrator)
-
-# Config-ból nézzük meg, kell-e admin (ha a config olvasható)
-$requireAdmin = $false
-if (Test-Path $ConfigPath) {
-    try {
-        $cfgQuick = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($null -ne $cfgQuick.requireAdmin) { $requireAdmin = [bool]$cfgQuick.requireAdmin }
-    }
-    catch { <# config hiba esetén a SendReport.ps1 kezeli #> }
-}
-
-if ($requireAdmin -and -not $isAdmin -and -not $SkipElevation) {
-    Write-Host ""
-    Write-Host "  ⚠ Rendszergazdai jogosultság szükséges." -ForegroundColor Yellow
-    Write-Host "  → Újraindítás emelt módban (UAC ablak jelenik meg)..." -ForegroundColor White
-    Write-Host ""
-
-    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$SendReportScript`" -ConfigPath `"$ConfigPath`""
-    if ($ForceCredential)    { $argList += " -ForceCredential" }
-    if ($DeleteLogsAfterSend){ $argList += " -DeleteLogsAfterSend" }
+    # Paraméterek átadása az emelt folyamatnak
+    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -ConfigPath `"$ConfigPath`""
+    if ($ForceCredential)     { $argList += " -ForceCredential" }
+    if ($DeleteLogsAfterSend) { $argList += " -DeleteLogsAfterSend" }
 
     Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
     exit 0
 }
 
-# ── Közvetlen futtatás ────────────────────────────────────────────
-#    (már admin vagyunk, vagy requireAdmin = false)
+# ===========================================================
+#  SENDREPORT.PS1 ELLENŐRZÉSE
+# ===========================================================
+
+$SendReportScript = Join-Path $PSScriptRoot "SendReport.ps1"
+
+if (-not (Test-Path $SendReportScript)) {
+    Write-Host ""
+    Write-Host "  [Launcher] XX SendReport.ps1 nem talalhato!" -ForegroundColor Red
+    Write-Host "     Vart hely: $SendReportScript" -ForegroundColor DarkGray
+    Write-Host "     A DiagMailer telepitese hianyos lehet." -ForegroundColor DarkGray
+    Write-Host ""
+    exit 1
+}
+
+# ===========================================================
+#  SENDREPORT.PS1 MEGHÍVÁSA
+#  Az emelés már megtörtént, a SendReport saját emelése nem fut le újra.
+# ===========================================================
 
 $scriptArgs = @{ ConfigPath = $ConfigPath }
-if ($ForceCredential)    { $scriptArgs.ForceCredential    = $true }
-if ($DeleteLogsAfterSend){ $scriptArgs.DeleteLogsAfterSend = $true }
+if ($ForceCredential)     { $scriptArgs.ForceCredential     = $true }
+if ($DeleteLogsAfterSend) { $scriptArgs.DeleteLogsAfterSend = $true }
 
 & $SendReportScript @scriptArgs
 exit $LASTEXITCODE
