@@ -49,7 +49,7 @@ if (-not $isAdmin) {
 #  BEÁLLÍTÁSOK
 # ===========================================================
 
-$script:Version        = "1.0.0"
+$script:Version        = "3.3.0"
 $SendReportScript      = Join-Path $PSScriptRoot "SendReport.ps1"
 $ManageCredScript      = Join-Path $PSScriptRoot "ManageCredential.ps1"
 $ContextMenuScript     = Join-Path $PSScriptRoot "ContextMenuInstaller.ps1"
