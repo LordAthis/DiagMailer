@@ -38,9 +38,10 @@ $isAdmin          = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltI
 if (-not $isAdmin) {
     Write-Host ""
     Write-Host "  [Launcher] Emelt jogosultsag szukseges - ujrainditom..." -ForegroundColor Yellow
-    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -ConfigPath `"$ConfigPath`""
-    if ($ForceCredential)     { $argList += " -ForceCredential" }
-    if ($DeleteLogsAfterSend) { $argList += " -DeleteLogsAfterSend" }
+    # Tombot hasznalunk - egyszeru string szokoznél rosszul darabolja az utvonalakat!
+    $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-ConfigPath", $ConfigPath)
+    if ($ForceCredential)     { $argList += "-ForceCredential" }
+    if ($DeleteLogsAfterSend) { $argList += "-DeleteLogsAfterSend" }
     Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
     exit 0
 }
@@ -49,7 +50,7 @@ if (-not $isAdmin) {
 #  BEÁLLÍTÁSOK
 # ===========================================================
 
-$script:Version        = "3.3.0"
+$script:Version        = "3.3.1"
 $SendReportScript      = Join-Path $PSScriptRoot "SendReport.ps1"
 $ManageCredScript      = Join-Path $PSScriptRoot "ManageCredential.ps1"
 $ContextMenuScript     = Join-Path $PSScriptRoot "ContextMenuInstaller.ps1"
