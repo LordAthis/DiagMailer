@@ -1,4 +1,4 @@
-#Requires -Version 3.2
+#Requires -Version 3.3
 <#
 .SYNOPSIS
     DiagMailer - Hitelesítő adatok kezelése
