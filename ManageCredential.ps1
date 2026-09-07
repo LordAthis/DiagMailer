@@ -12,9 +12,9 @@
     Update - Törli a régit, bekéri az újat, elmenti
     Delete - Törli a tárolt jelszót és a munkamenet-memóriát
 .EXAMPLE
-    .\Manage-Credential.ps1 -Action Query
-    .\Manage-Credential.ps1 -Action Update
-    .\Manage-Credential.ps1 -Action Delete
+    .\ManageCredential.ps1 -Action Query
+    .\ManageCredential.ps1 -Action Update
+    .\ManageCredential.ps1 -Action Delete
 #>
 
 param(
@@ -68,7 +68,7 @@ function Invoke-CredQuery {
         catch {
             Write-Warn "Tartos tarolas: fajl letezik, de nem olvashato (serult?)"
             Write-Tip  "Fajl helye: $script:CredStorePath"
-            Write-Tip  "Javasolt: Manage-Credential.ps1 -Action Update"
+            Write-Tip  "Javasolt: ManageCredential.ps1 -Action Update"
         }
     }
     else {
