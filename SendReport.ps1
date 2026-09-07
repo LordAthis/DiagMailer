@@ -1,4 +1,4 @@
-#Requires -Version 3.0
+#Requires -Version 3.3
 <#
 .SYNOPSIS
     DiagMailer - LOG jelentés küldő
@@ -19,6 +19,7 @@
 
 param(
     [string]$ConfigPath        = "$PSScriptRoot\config.json",
+    [string]$LogFolder         = "",
     [switch]$ForceCredential,
     [switch]$DeleteLogsAfterSend
 )
@@ -343,6 +344,14 @@ try {
     Write-Step "Konfiguracio: $ConfigPath"
     $cfg = Get-DiagConfig -Path $ConfigPath
     Write-OK "Cel email: $($cfg.reportEmail)"
+
+    # Ha -LogFolder parametert kapunk, az felulirja a config.json logFolder mezojet
+    # (ContextMenuSend.ps1 adja at a jobb klikkelt mappa LOG almappajat)
+    if (-not [string]::IsNullOrWhiteSpace($LogFolder)) {
+        $cfg | Add-Member -Force NotePropertyName logFolder -NotePropertyValue $LogFolder
+        Write-Step "LOG mappa (parameter altal felulirva): $LogFolder"
+    }
+
     Write-Sep
 
     # 2. Hitelesítő adat
