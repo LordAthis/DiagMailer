@@ -1,4 +1,4 @@
-#Requires -Version 3.2
+#Requires -Version 3.3
 <#
 .SYNOPSIS
     DiagMailer Launcher – Főmenü és belépési pont
@@ -52,6 +52,7 @@ if (-not $isAdmin) {
 $script:Version        = "1.0.0"
 $SendReportScript      = Join-Path $PSScriptRoot "SendReport.ps1"
 $ManageCredScript      = Join-Path $PSScriptRoot "ManageCredential.ps1"
+$ContextMenuScript     = Join-Path $PSScriptRoot "ContextMenuInstaller.ps1"
 
 function Write-Sep { Write-Host "  ------------------------------------------" -ForegroundColor DarkGray }
 function Write-Fail { param([string]$Msg) Write-Host "  XX $Msg" -ForegroundColor Red }
@@ -105,6 +106,8 @@ function Show-Menu {
     Write-Host "  [2]  Jelszo allapota (lekerdezese)" -ForegroundColor White
     Write-Host "  [3]  Jelszo ujrakonfiguralas" -ForegroundColor White
     Write-Host "  [4]  Tarolt jelszo torlese" -ForegroundColor White
+    Write-Sep
+    Write-Host "  [5]  Jobb klikk menu telepitese / eltavolitasa" -ForegroundColor White
     Write-Sep
     Write-Host "  [0]  Kilepes" -ForegroundColor DarkGray
     Write-Host ""
@@ -161,6 +164,18 @@ do {
             }
             else {
                 Write-Host "  Torles megszakitva." -ForegroundColor DarkGray
+            }
+            Wait-Enter
+        }
+
+        "5" {
+            # Jobb klikk kontextusmenu telepito
+            if (Test-Path $ContextMenuScript) {
+                & $ContextMenuScript -Action Menu
+            } else {
+                Write-Host ""
+                Write-Host "  !! ContextMenuInstaller.ps1 nem talalhato!" -ForegroundColor Yellow
+                Write-Host "     Vart hely: $ContextMenuScript" -ForegroundColor DarkGray
             }
             Wait-Enter
         }
