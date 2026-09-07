@@ -39,7 +39,8 @@ $isAdmin          = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltI
 if (-not $isAdmin) {
     Write-Host ""
     Write-Host "  [ContextMenuInstaller] Emelt jogosultsag szukseges..." -ForegroundColor Yellow
-    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Action `"$Action`""
+    # Tombot hasznalunk - egyszeru string szokoznél rosszul darabolja az utvonalakat!
+    $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-Action", $Action)
     Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
     exit 0
 }
@@ -48,7 +49,7 @@ if (-not $isAdmin) {
 #  BEÁLLÍTÁSOK
 # ===========================================================
 
-$script:Version       = "3.3.0"
+$script:Version        = "3.3.1"
 $script:ScriptDir     = $PSScriptRoot
 $script:SourceScript  = Join-Path $PSScriptRoot "ContextMenuSend.ps1"
 $script:TargetDir     = "$env:SystemRoot\Scripts"
