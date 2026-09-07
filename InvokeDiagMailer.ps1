@@ -1,4 +1,4 @@
-#Requires -Version 3.2
+#Requires -Version 3.0
 <#
 .SYNOPSIS
     DiagMailer integráció – más REPÓ-kba kerülő hívó script
