@@ -36,9 +36,11 @@ $isAdmin          = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltI
 if (-not $isAdmin) {
     Write-Host ""
     Write-Host "  [DiagMailer] Emelt jogosultsag szukseges - ujrainditom..." -ForegroundColor Yellow
-    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -ConfigPath `"$ConfigPath`""
-    if ($ForceCredential)     { $argList += " -ForceCredential" }
-    if ($DeleteLogsAfterSend) { $argList += " -DeleteLogsAfterSend" }
+    # Tombot hasznalunk - egyszeru string szokoznél rosszul darabolja az utvonalakat!
+    $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-ConfigPath", $ConfigPath)
+    if (-not [string]::IsNullOrWhiteSpace($LogFolder)) { $argList += @("-LogFolder", $LogFolder) }
+    if ($ForceCredential)     { $argList += "-ForceCredential" }
+    if ($DeleteLogsAfterSend) { $argList += "-DeleteLogsAfterSend" }
     Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
     exit 0
 }
@@ -48,7 +50,7 @@ if (-not $isAdmin) {
 # ===========================================================
 
 $ErrorActionPreference = "Stop"
-$script:Version        = "3.3.0"
+$script:Version        = "3.3.1"
 $script:CredStorePath  = "$env:LOCALAPPDATA\DiagMailer\credential.xml"
 $script:ZipPath        = $null
 
