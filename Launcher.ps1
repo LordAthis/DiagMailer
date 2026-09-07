@@ -51,7 +51,7 @@ if (-not $isAdmin) {
 
 $script:Version        = "1.0.0"
 $SendReportScript      = Join-Path $PSScriptRoot "SendReport.ps1"
-$ManageCredScript      = Join-Path $PSScriptRoot "Manage-Credential.ps1"
+$ManageCredScript      = Join-Path $PSScriptRoot "ManageCredential.ps1"
 
 function Write-Sep { Write-Host "  ------------------------------------------" -ForegroundColor DarkGray }
 function Write-Fail { param([string]$Msg) Write-Host "  XX $Msg" -ForegroundColor Red }
@@ -63,7 +63,7 @@ function Write-Tip  { param([string]$Msg) Write-Host "     $Msg" -ForegroundColo
 
 $missing = @()
 if (-not (Test-Path $SendReportScript))  { $missing += "SendReport.ps1" }
-if (-not (Test-Path $ManageCredScript))  { $missing += "Manage-Credential.ps1" }
+if (-not (Test-Path $ManageCredScript))  { $missing += "ManageCredential.ps1" }
 
 if ($missing.Count -gt 0) {
     Write-Host ""
