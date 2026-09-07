@@ -5,9 +5,9 @@
 .DESCRIPTION
     Automatikusan emeli a jogosultságot, majd menüt jelenít meg:
       1. Jelentés küldése (SendReport.ps1)
-      2. Jelszó állapota (Manage-Credential.ps1 -Action Query)
-      3. Jelszó újrakonfigurálás (Manage-Credential.ps1 -Action Update)
-      4. Tárolt jelszó törlése (Manage-Credential.ps1 -Action Delete)
+      2. Jelszó állapota (ManageCredential.ps1 -Action Query)
+      3. Jelszó újrakonfigurálás (ManageCredential.ps1 -Action Update)
+      4. Tárolt jelszó törlése (ManageCredential.ps1 -Action Delete)
       0. Kilépés
 .PARAMETER ConfigPath
     A config.json elérési útja.
