@@ -19,14 +19,14 @@
        ├── LOG/
        ├── DiagMailer/        ← itt van
        │   └── SendReport.ps1
-       └── Invoke-DiagMailer.ps1  ← ez a script
+       └── InvokeDiagMailer.ps1  ← ez a script
 
     B) DiagMailer önálló REPÓ a szomszédban:
        Projektek/
        ├── MegRendeloGep/
        │   ├── LOG/
        │   └── scripts/
-       │       └── Invoke-DiagMailer.ps1  ← ez a script
+       │       └── InvokeDiagMailer.ps1  ← ez a script
        └── DiagMailer/        ← a szomszédban
            └── SendReport.ps1
 
@@ -40,10 +40,10 @@
     GitHub clone URL – felülírja a scriptben lévő alapértelmezést.
 
 .EXAMPLE
-    .\Invoke-DiagMailer.ps1
-    .\Invoke-DiagMailer.ps1 -ForceCredential
+    .\InvokeDiagMailer.ps1
+    .\InvokeDiagMailer.ps1 -ForceCredential
     # Menüből hívva:
-    & "$PSScriptRoot\Invoke-DiagMailer.ps1" -DeleteLogsAfterSend
+    & "$PSScriptRoot\InvokeDiagMailer.ps1" -DeleteLogsAfterSend
 #>
 
 param(
@@ -174,7 +174,7 @@ if ($ForceCredential)    { $scriptArgs.ForceCredential    = $true }
 if ($DeleteLogsAfterSend){ $scriptArgs.DeleteLogsAfterSend = $true }
 
 # Ha Launchert hívjuk, adjuk meg a SkipElevation kapcsolót
-# (az elevációt az Invoke-DiagMailer nem kezeli, a Launcher döntse el)
+# (az elevációt az InvokeDiagMailer nem kezeli, a Launcher döntse el)
 if ($scriptToRun -eq $LauncherScript) {
     # Launcher maga dönt az elevációról a config alapján
 }
