@@ -174,7 +174,7 @@ if ($ForceCredential)    { $scriptArgs.ForceCredential    = $true }
 if ($DeleteLogsAfterSend){ $scriptArgs.DeleteLogsAfterSend = $true }
 
 # Ha Launchert hívjuk, adjuk meg a SkipElevation kapcsolót
-# (az elevációt az InvokeDiagMailer nem kezeli, a Launcher döntse el)
+# (az elevációt az Invoke-DiagMailer nem kezeli, a Launcher döntse el)
 if ($scriptToRun -eq $LauncherScript) {
     # Launcher maga dönt az elevációról a config alapján
 }
