@@ -1,17 +1,20 @@
 #Requires -Version 3.0
 <#
 .SYNOPSIS
-    DiagMailer - LOG jelentes kuldo
+    DiagMailer - LOG jelentés küldő
+.DESCRIPTION
+    Összegyűjti a LOG mappa tartalmát, ZIP-be csomagolja és elküldi emailben.
+    Első futáskor bekéri az SMTP jelszót, opcionálisan tartósan elmenti (DPAPI).
 .PARAMETER ConfigPath
-    A config.json eleresi utja. Alapertelmezett: script melletti mappa.
+    A config.json elérési útja. Alapértelmezett: script melletti mappa.
 .PARAMETER ForceCredential
-    Ujra bekeri a jelszot, figyelmen kivul hagyja a taroltat.
+    Figyelmen kívül hagyja a tárolt jelszót, újra bekéri.
 .PARAMETER DeleteLogsAfterSend
-    Kuldes utan torli a LOG fajlokat.
+    Küldés után törli a LOG fájlokat.
 .EXAMPLE
     .\SendReport.ps1
     .\SendReport.ps1 -ForceCredential
-    .\SendReport.ps1 -DeleteLogsAfterSend
+    .\SendReport.ps1 -ConfigPath "D:\sajat\config.json" -DeleteLogsAfterSend
 #>
 
 param(
@@ -20,13 +23,37 @@ param(
     [switch]$DeleteLogsAfterSend
 )
 
-$ErrorActionPreference     = "Stop"
-$script:Version            = "1.0.0"
-$script:CredStorePath      = "$env:LOCALAPPDATA\DiagMailer\credential.xml"
-$script:ZipPath            = $null
+# ===========================================================
+#  AUTOMATIKUS JOGOSULTSÁG EMELÉS
+#  Ha nem fut rendszergazdaként, újraindítja emelt módban.
+#  A param() blokk után kell lennie, hogy a paraméterek elérhetők legyenek.
+# ===========================================================
+
+$currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+$isAdmin          = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+    Write-Host ""
+    Write-Host "  [DiagMailer] Emelt jogosultsag szukseges - ujrainditom..." -ForegroundColor Yellow
+    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -ConfigPath `"$ConfigPath`""
+    if ($ForceCredential)     { $argList += " -ForceCredential" }
+    if ($DeleteLogsAfterSend) { $argList += " -DeleteLogsAfterSend" }
+    Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
+    exit 0
+}
 
 # ===========================================================
-#  MEGJELENITESI SEGITFUGGVENYEK
+#  GLOBÁLIS BEÁLLÍTÁSOK
+# ===========================================================
+
+$ErrorActionPreference = "Stop"
+$script:Version        = "1.0.0"
+$script:CredStorePath  = "$env:LOCALAPPDATA\DiagMailer\credential.xml"
+$script:ZipPath        = $null
+
+# ===========================================================
+#  MEGJELENÍTÉSI SEGÉDFÜGGVÉNYEK
+#  (ékezet nélkül a kimeneten, hogy minden kódlapon helyes legyen)
 # ===========================================================
 
 function Write-Header {
@@ -45,26 +72,7 @@ function Write-Tip  { param([string]$Msg) Write-Host "     $Msg" -ForegroundColo
 function Write-Sep  { Write-Host "  ------------------------------------------" -ForegroundColor DarkGray }
 
 # ===========================================================
-#  ADMIN JOGOSULTSAG
-# ===========================================================
-
-function Test-IsAdmin {
-    $id  = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $pri = [Security.Principal.WindowsPrincipal]$id
-    return $pri.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
-function Invoke-SelfElevate {
-    Write-Warn "Rendszergazdai jogosultsag szukseges - ujrainditom..."
-    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -ConfigPath `"$ConfigPath`""
-    if ($ForceCredential)     { $argList += " -ForceCredential" }
-    if ($DeleteLogsAfterSend) { $argList += " -DeleteLogsAfterSend" }
-    Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
-    exit 0
-}
-
-# ===========================================================
-#  KONFIGURACIO
+#  KONFIGURÁCIÓ BETÖLTÉSE
 # ===========================================================
 
 function Get-DiagConfig {
@@ -85,6 +93,7 @@ function Get-DiagConfig {
         exit 1
     }
 
+    # Kötelező mezők ellenőrzése
     foreach ($field in @("reportEmail","fromEmail","smtpServer","smtpPort","logFolder")) {
         if ([string]::IsNullOrWhiteSpace($cfg.$field)) {
             Write-Fail "Hianyzik a config.json mezobol: '$field'"
@@ -92,65 +101,70 @@ function Get-DiagConfig {
         }
     }
 
-    if ($null -eq $cfg.fromName)     { $cfg | Add-Member -Force NotePropertyName fromName     -NotePropertyValue "DiagMailer" }
-    if ($null -eq $cfg.subject)      { $cfg | Add-Member -Force NotePropertyName subject      -NotePropertyValue "DiagMailer Jelentes" }
-    if ($null -eq $cfg.useSSL)       { $cfg | Add-Member -Force NotePropertyName useSSL       -NotePropertyValue $true }
-    if ($null -eq $cfg.requireAdmin) { $cfg | Add-Member -Force NotePropertyName requireAdmin -NotePropertyValue $false }
+    # Alapértelmezések kitöltése, ha hiányoznak
+    if ($null -eq $cfg.fromName) { $cfg | Add-Member -Force NotePropertyName fromName -NotePropertyValue "DiagMailer" }
+    if ($null -eq $cfg.subject)  { $cfg | Add-Member -Force NotePropertyName subject  -NotePropertyValue "DiagMailer Jelentes" }
+    if ($null -eq $cfg.useSSL)   { $cfg | Add-Member -Force NotePropertyName useSSL   -NotePropertyValue $true }
 
     return $cfg
 }
 
 # ===========================================================
-#  HITELESITO ADAT KEZELES
+#  HITELESÍTŐ ADAT KEZELÉS
+#  Sorrend: munkamenet memória → DPAPI tartós tár → interaktív bekérés
 # ===========================================================
 
 function Get-DiagCredential {
     param([switch]$ForcePrompt)
 
-    # 1. Munkamenet memoria
+    # 1. Munkamenet memória (ugyanaz a PowerShell folyamat)
     if ((-not $ForcePrompt) -and ($null -ne $Global:DiagMailerCred)) {
-        Write-OK "Jelszó: munkamenet-memoriabol betoltve"
+        Write-OK "Jelszo: munkamenet memoriabol betoltve"
         return $Global:DiagMailerCred
     }
 
-    # 2. Tartosan mentett (DPAPI)
+    # 2. Tartósan mentett hitelesítő (DPAPI - csak ez a gép + felhasználó olvashatja)
     if ((-not $ForcePrompt) -and (Test-Path $script:CredStorePath)) {
         try {
             $stored = Import-Clixml -Path $script:CredStorePath
             $Global:DiagMailerCred = $stored
-            Write-OK "Jelszó: tartosan mentettbol betoltve ($script:CredStorePath)"
+            Write-OK "Jelszo: tartosan mentettbol betoltve"
+            Write-Tip  "Hely: $script:CredStorePath"
             return $stored
         }
         catch {
+            # Sérült vagy érvénytelen mentett adat - törlés és újrakérés
             Write-Warn "Tarolt hitelesito ervenytelen - ujra szukseges"
             Remove-Item $script:CredStorePath -Force -ErrorAction SilentlyContinue
         }
     }
 
-    # 3. Interaktiv bekeres
+    # 3. Interaktív bekérés
     Write-Host ""
     Write-Host "  +--------------------------------------------+" -ForegroundColor Cyan
     Write-Host "  |  Email hitelesites szukseges               |" -ForegroundColor Cyan
-    Write-Host "  |  Add meg a kuldo fiok (fromEmail) adatait  |" -ForegroundColor Cyan
-    Write-Host "  |  Gmail eseten App-jelszot hasznalj!        |" -ForegroundColor Cyan
+    Write-Host "  |  Add meg a kuldo fiok adatait (fromEmail)  |" -ForegroundColor Cyan
+    Write-Host "  |  Gmail eseten App-jelszo kell, nem a rendes|" -ForegroundColor Cyan
     Write-Host "  +--------------------------------------------+" -ForegroundColor Cyan
     Write-Host ""
 
-    $cred = Get-Credential -Message "SMTP hitelesites - kuldo fiok adatai"
+    $cred = Get-Credential -Message "SMTP hitelesites - kuldo fiok adatai (fromEmail a configbol)"
     if ($null -eq $cred) {
         Write-Fail "Hitelesites megszakitva."
         exit 1
     }
 
+    # Munkamenetbe mentés
     $Global:DiagMailerCred = $cred
-    Write-OK "Jelszó elmentve a munkamenet idejere (PS ablak bezarasaig)"
+    Write-OK "Jelszo elmentve a munkamenet idejere (PS ablak bezarasaig)"
 
+    # Tartós mentés kérdése
     Write-Host ""
-    Write-Host "  Tartosan mentsem a jelszot erre a gepre?" -ForegroundColor Yellow
+    Write-Host "  Tartosan mentsem a jelszo erre a gepre?" -ForegroundColor Yellow
     Write-Tip  "DPAPI titkositas: csak ez a Windows-felhasznalo olvashatja vissza"
-    Write-Tip  "Allando ugyfel gepen hasznos - nem kell mindig beirni"
+    Write-Tip  "Allando ugyfel gepen ajanlott - nem kell mindig beirni"
     Write-Host ""
-    $save = Read-Host "  [I = Igen, tartosan | N = Nem, csak most]"
+    $save = Read-Host "  [I = Igen, marad ujrainditas utan is | N = Nem, csak most]"
 
     if ($save -match "^[Ii]") {
         $dir = Split-Path $script:CredStorePath -Parent
@@ -159,26 +173,28 @@ function Get-DiagCredential {
         }
         try {
             $cred | Export-Clixml -Path $script:CredStorePath -Force
-            Write-OK "Jelszó tartosan elmentve: $script:CredStorePath"
+            Write-OK "Jelszo tartosan elmentve: $script:CredStorePath"
         }
         catch {
             Write-Warn "Tartos mentes sikertelen: $($_.Exception.Message)"
+            Write-Tip  "A munkamenet memoriban marad, ujrainditas utan ujra ker"
         }
     }
     else {
-        Write-Step "Jelszó csak a PowerShell ablak bezarasaig el"
+        Write-Step "Jelszo csak a PowerShell ablak bezarasaig el"
     }
 
     return $cred
 }
 
 # ===========================================================
-#  LOG FAJLOK
+#  LOG FÁJLOK ÖSSZEGYŰJTÉSE
 # ===========================================================
 
 function Get-LogInfo {
     param([string]$LogFolder)
 
+    # Relatív útvonal feloldása (pl. ..\\LOG a script helyéhez képest)
     if ([System.IO.Path]::IsPathRooted($LogFolder)) {
         $resolved = $LogFolder
     }
@@ -190,6 +206,7 @@ function Get-LogInfo {
 
     if (-not (Test-Path $resolved)) {
         Write-Warn "LOG mappa nem letezik: $resolved"
+        Write-Tip  "Ellenorizd a logFolder beallitast a config.json-ban"
         return $null
     }
 
@@ -212,7 +229,7 @@ function Get-LogInfo {
 }
 
 # ===========================================================
-#  ZIP TOMORITIES
+#  ZIP TÖMÖRÍTÉS
 # ===========================================================
 
 function New-LogZip {
@@ -238,7 +255,7 @@ function New-LogZip {
 }
 
 # ===========================================================
-#  EMAIL KULDES
+#  EMAIL KÜLDÉS
 # ===========================================================
 
 function Send-DiagReport {
@@ -254,10 +271,12 @@ function Send-DiagReport {
     $user      = $env:USERNAME
     $subject   = "$($Config.subject) | $hostname | $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
+    # Fájllista szöveg (ékezet nélkül a kódlap-biztonság miatt)
     $fileLines = $LogInfo.Files | ForEach-Object {
         "  - $($_.Name)  ($([Math]::Round($_.Length/1KB,1)) KB)"
     }
 
+    # Email törzs összerakása string tömbbel (here-string kerülendő indentálási hibák miatt)
     $bodyParts = @(
         "DiagMailer Automatikus Jelentes",
         "================================",
@@ -292,7 +311,7 @@ function Send-DiagReport {
     }
 
     Write-Step "Kuldes -> $($Config.reportEmail)"
-    Write-Tip  "SMTP: $($Config.smtpServer):$($Config.smtpPort)  SSL: $($Config.useSSL)"
+    Write-Tip  "SMTP: $($Config.smtpServer):$($Config.smtpPort)  |  SSL: $($Config.useSSL)"
 
     try {
         Send-MailMessage @mailParams
@@ -302,38 +321,36 @@ function Send-DiagReport {
         Write-Fail "Kuldes sikertelen: $($_.Exception.Message)"
         Write-Host ""
         Write-Tip "Hibaelaritas:"
-        Write-Tip "  Gmail     -> App-jelszot hasznalj, nem a Google-fiok jelszavat"
-        Write-Tip "  Gmail App-jelszava: https://myaccount.google.com/apppasswords"
-        Write-Tip "  SMTP port -> 587 (TLS) vagy 465 (SSL)"
-        Write-Tip "  Jelszó hiba -> futtasd: .\SendReport.ps1 -ForceCredential"
+        Write-Tip "  Gmail      -> App-jelszo kell, nem a Google-fiok jelszava!"
+        Write-Tip "               https://myaccount.google.com/apppasswords"
+        Write-Tip "  Office365  -> App-jelszo vagy OAuth szukseges"
+        Write-Tip "  Port hiba  -> 587 (TLS/STARTTLS) vagy 465 (SSL)"
+        Write-Tip "  Jelszo hiba -> Futtasd: .\SendReport.ps1 -ForceCredential"
         throw
     }
 }
 
 # ===========================================================
-#  FOPRORAM
+#  FŐPROGRAM
 # ===========================================================
 
 try {
     Write-Header
+    Write-Step "Rendszergazda mod: OK"
 
-    # 1. Konfig
+    # 1. Konfiguráció betöltése
+    Write-Host ""
     Write-Step "Konfiguracio: $ConfigPath"
     $cfg = Get-DiagConfig -Path $ConfigPath
     Write-OK "Cel email: $($cfg.reportEmail)"
     Write-Sep
 
-    # 2. Admin check
-    if (($cfg.requireAdmin -eq $true) -and (-not (Test-IsAdmin))) {
-        Invoke-SelfElevate
-    }
-
-    # 3. Hitelesito adat
+    # 2. Hitelesítő adat
     Write-Host ""
     $cred = Get-DiagCredential -ForcePrompt:$ForceCredential
     Write-Sep
 
-    # 4. LOG fajlok
+    # 3. LOG fájlok keresése
     Write-Host ""
     $logInfo = Get-LogInfo -LogFolder $cfg.logFolder
 
@@ -344,16 +361,16 @@ try {
     }
     Write-Sep
 
-    # 5. ZIP
+    # 4. ZIP tömörítés
     Write-Host ""
     $script:ZipPath = New-LogZip -LogPath $logInfo.Path
     Write-Sep
 
-    # 6. Kuldes
+    # 5. Email küldés
     Write-Host ""
     Send-DiagReport -Config $cfg -Credential $cred -ZipPath $script:ZipPath -LogInfo $logInfo
 
-    # 7. Opcionalis LOG torles
+    # 6. Opcionális LOG törlés küldés után
     if ($DeleteLogsAfterSend) {
         Write-Sep
         Write-Step "LOG fajlok torlese (-DeleteLogsAfterSend aktiv)..."
@@ -375,6 +392,7 @@ catch {
     exit 1
 }
 finally {
+    # Ideiglenes ZIP mindig törlődik, akár sikerült a küldés, akár nem
     if (($null -ne $script:ZipPath) -and (Test-Path $script:ZipPath)) {
         Remove-Item $script:ZipPath -Force -ErrorAction SilentlyContinue
         Write-Tip "Ideiglenes ZIP torolve"
