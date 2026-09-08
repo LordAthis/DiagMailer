@@ -6,33 +6,37 @@
     Ez a fájl kerül C:\Windows\Scripts\DiagMailerSend.ps1 helyre a telepítő által.
     A Windows Explorer jobb klikk menüjéből hívódik meg automatikusan.
 
-    A célmappa meghatározása: $PWD (munkakönyvtár), amit a registry parancs
-    Set-Location segítségével állít be a futtatás előtt. Így teljesen elkerüljük
-    a %1/%V paraméter-átadás szóköz-problémáját!
+    Hibrid célmappa-meghatározás:
+      - Első hívás (nem emelt): $PWD-ből olvassa (a registry Set-Location állítja be)
+      - UAC emelt újrafutás: explicit -TargetDir paraméterből kapja (array = szóközös út OK!)
 
-    Registry parancs formátuma (ContextMenuInstaller.ps1 írja):
+    Registry parancs (ContextMenuInstaller.ps1 írja):
       powershell.exe -Command "Set-Location '%1'; & 'C:\Windows\Scripts\DiagMailerSend.ps1'"
-
-    UAC emeli a jogosultságot, a WorkingDirectory átadással a könyvtár megmarad.
+.PARAMETER TargetDir
+    Célmappa explicit átadásra (UAC emelt újrafutás esetén). Üresen hagyva $PWD-t használ.
 .EXAMPLE
     (Közvetlenül általában nem hívják, a jobb klikk menü indítja)
-    .\ContextMenuSend.ps1
 #>
 
-param()
+param(
+    [string]$TargetDir = ""
+)
 
 # ===========================================================
 #  AUTOMATIKUS JOGOSULTSÁG EMELÉS
-#  WorkingDirectory atadasa: emeles utan is jo mappaban indul!
+#  Emelt újrafutásnál a célmappát array-ként adja át (szóközbiztos)!
+#  Az emelt folyamat nem örökli $PWD-t, ezért kell explicit átadni.
 # ===========================================================
 
 $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 $isAdmin          = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
-    $currentDir = (Get-Location).Path
-    $argList    = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath)
-    Start-Process powershell.exe -ArgumentList $argList -Verb RunAs -WorkingDirectory $currentDir
+    # Ha TargetDir ures, $PWD-bol olvassuk (az elso, nem emelt futasban Set-Location allitja be)
+    $dirToPass = if ([string]::IsNullOrWhiteSpace($TargetDir)) { (Get-Location).Path } else { $TargetDir }
+    # Array-kent adjuk at: a tomb minden eleme klon argumentum - szokozos utvonal is OK!
+    $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-TargetDir", $dirToPass)
+    Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
     exit 0
 }
 
@@ -40,7 +44,8 @@ if (-not $isAdmin) {
 #  BEÁLLÍTÁSOK
 # ===========================================================
  
-$script:Version        = "3.3.3"
+$script:Version        = "3.3.4"
+
 
 # ===========================================================
 #  SEGÉDFÜGGVÉNYEK
@@ -62,13 +67,18 @@ Write-Host "  |   DiagMailer - LOG Kuldes (jobb klikk)  |" -ForegroundColor Cyan
 Write-Host "  +==========================================+" -ForegroundColor Cyan
 Write-Host ""
 
-# ── 1. Célmappa: $PWD-ből olvassuk (Set-Location-nal lett beállítva) ─
-$targetDir = (Get-Location).Path
-Write-Step "Cel mappa: $targetDir"
+# ── 1. Célmappa meghatározása ─────────────────────────────────────────
+# Emelt futasban $TargetDir az explicit parameterbol jon (array-kent atadva)
+# Nem emelt futasban (ha kozvetlenul futtatjak) $PWD-t hasznaljuk
+if ([string]::IsNullOrWhiteSpace($TargetDir)) {
+    $TargetDir = (Get-Location).Path
+}
 
-if ([string]::IsNullOrWhiteSpace($targetDir) -or -not (Test-Path $targetDir)) {
-    Write-Fail "A cel mappa nem erheto el: $targetDir"
-    Write-Tip  "Probald meg kozvetlenul a DiagMailer mappajara jobb klikkelni"
+Write-Step "Cel mappa: $TargetDir"
+
+if (-not (Test-Path $TargetDir)) {
+    Write-Fail "A cel mappa nem letezik: $TargetDir"
+    Write-Tip  "Probald meg kozvetlenul a projekted gyokermappajara jobb klikkelni"
     Write-Host ""
     Read-Host  "  [Enter] a kilepeshez"
     exit 1
@@ -113,7 +123,7 @@ $logCandidates = @("LOG", "log", "Log", "Logs", "logs", "LOGS")
 $logFolder     = $null
 
 foreach ($name in $logCandidates) {
-    $candidate = Join-Path $targetDir $name
+    $candidate = Join-Path $TargetDir $name
     if (Test-Path $candidate -PathType Container) {
         $logFolder = $candidate
         break
@@ -121,7 +131,7 @@ foreach ($name in $logCandidates) {
 }
 
 if (-not $logFolder) {
-    Write-Warn "Nem talalhato LOG almappa: $targetDir"
+    Write-Warn "Nem talalhato LOG almappa: $TargetDir"
     Write-Tip  "Keresett nevek: $($logCandidates -join ', ')"
     Write-Tip  "Jobb klikkeld a projekted gyokermappajat, ahol a LOG mappa van!"
     Write-Host ""
@@ -132,7 +142,7 @@ if (-not $logFolder) {
 Write-OK "LOG mappa: $logFolder"
 Write-Host ""
 
-# ── 4. SendReport.ps1 meghívása splatting-gal ────────────────────────
+# ── 4. SendReport.ps1 meghívása splatting-gal (szóközös utak is OK) ──
 Write-Step "SendReport.ps1 indul..."
 Write-Host ""
 
