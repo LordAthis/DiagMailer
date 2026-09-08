@@ -49,7 +49,7 @@ if (-not $isAdmin) {
 #  BEÁLLÍTÁSOK
 # ===========================================================
 
-$script:Version        = "3.3.2"
+$script:Version        = "3.3.3"
 $script:ScriptDir     = $PSScriptRoot
 $script:SourceScript  = Join-Path $PSScriptRoot "ContextMenuSend.ps1"
 $script:TargetDir     = "$env:SystemRoot\Scripts"
@@ -88,6 +88,7 @@ function Get-InstallStatus {
         RegPathExists = Test-Path $script:RegHive
         InstallPath   = ""
         MenuKeys      = @{}
+        MenuCommands  = @{}
     }
 
     if ($status.RegPathExists) {
@@ -100,7 +101,17 @@ function Get-InstallStatus {
         try {
             $k = $HKCR.OpenSubKey($key)
             $status.MenuKeys[$key] = ($null -ne $k)
-            if ($null -ne $k) { $k.Close() }
+            if ($null -ne $k) {
+                # Tényleges parancs értékének kiolvasása a command alkulcsból
+                try {
+                    $cmdKey = $HKCR.OpenSubKey("$key\command")
+                    if ($cmdKey) {
+                        $status.MenuCommands[$key] = $cmdKey.GetValue("")
+                        $cmdKey.Close()
+                    }
+                } catch { $status.MenuCommands[$key] = "(nem olvashato)" }
+                $k.Close()
+            }
         } catch {
             $status.MenuKeys[$key] = $false
         }
@@ -133,11 +144,21 @@ function Invoke-Status {
         Write-Warn "DiagMailer ut: nincs mentve a rendszerleloban"
     }
 
-    # Kontextusmenü kulcsok
+    # Kontextusmenü kulcsok + TÉNYLEGES PARANCS ÉRTÉKE
     Write-Host ""
     foreach ($key in $script:RegKeys) {
         if ($s.MenuKeys[$key]) {
             Write-OK "HKCR\$key  [TELEPITVE]"
+            # Parancs megjelenítése diagnosztikához (szóköz-hiba ellenőrzéséhez)
+            if ($s.MenuCommands[$key]) {
+                $cmd = $s.MenuCommands[$key]
+                # Hosszú parancs tördelése
+                if ($cmd.Length -gt 80) {
+                    Write-Tip "Parancs: $($cmd.Substring(0,77))..."
+                } else {
+                    Write-Tip "Parancs: $cmd"
+                }
+            }
         } else {
             Write-Warn "HKCR\$key  [NINCS]"
         }
@@ -205,12 +226,12 @@ function Invoke-Install {
     # HKCR direkt .NET-tel erhetjük el, nem fagyna be, mint a PS provider
     $HKCR = [Microsoft.Win32.Registry]::ClassesRoot
 
-    # -Command mod + single-quote: egyetlen megbizható módszer szóközös útvonalakhoz!
-    # -File modban a PowerShell.exe szóközön töri a %1 parametert az idézőjel ellenére is.
-    # Single-quote-ban a %1/%V tartalmát a PowerShell literálisan, szóközzel együtt kezeli.
+    # Set-Location megkozolites: nem adjuk at a celut parameterkent!
+    # A PowerShell process a megfelelo mappaban indul (Set-Location utan),
+    # a ContextMenuSend.ps1 pedig $PWD-bol olvassa ki - szokozproblemamentes!
     $commands = @{
-        "Directory\shell\DiagMailer"            = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -Command `"& '$script:TargetScript' -TargetDir '%1'`""
-        "Directory\Background\shell\DiagMailer" = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -Command `"& '$script:TargetScript' -TargetDir '%V'`""
+        "Directory\shell\DiagMailer"            = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -Command `"Set-Location '%1'; & '$script:TargetScript'`""
+        "Directory\Background\shell\DiagMailer" = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -Command `"Set-Location '%V'; & '$script:TargetScript'`""
     }
 
     $allOk = $true
