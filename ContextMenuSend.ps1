@@ -6,34 +6,33 @@
     Ez a fájl kerül C:\Windows\Scripts\DiagMailerSend.ps1 helyre a telepítő által.
     A Windows Explorer jobb klikk menüjéből hívódik meg automatikusan.
 
-    Működés:
-      1. Megkapja a kattintott mappa elérési útját (%1 vagy %V)
-      2. A rendszerleíróból olvassa a DiagMailer telepítési helyét
-      3. Megkeresi a LOG vagy log almappát a kattintott mappában
-      4. Meghívja a SendReport.ps1-et a talált LOG mappával
+    A célmappa meghatározása: $PWD (munkakönyvtár), amit a registry parancs
+    Set-Location segítségével állít be a futtatás előtt. Így teljesen elkerüljük
+    a %1/%V paraméter-átadás szóköz-problémáját!
 
-    Registry kulcs (ContextMenuInstaller.ps1 írja): HKCU\Software\DiagMailer\InstallPath
-.PARAMETER TargetDir
-    A jobb klikkel megnyitott mappa elérési útja (%1 mappára, %V háttérre).
+    Registry parancs formátuma (ContextMenuInstaller.ps1 írja):
+      powershell.exe -Command "Set-Location '%1'; & 'C:\Windows\Scripts\DiagMailerSend.ps1'"
+
+    UAC emeli a jogosultságot, a WorkingDirectory átadással a könyvtár megmarad.
 .EXAMPLE
-    .\ContextMenuSend.ps1 -TargetDir "C:\Projektek\UgyfelGep"
+    (Közvetlenül általában nem hívják, a jobb klikk menü indítja)
+    .\ContextMenuSend.ps1
 #>
 
-param(
-    [string]$TargetDir
-)
+param()
 
 # ===========================================================
 #  AUTOMATIKUS JOGOSULTSÁG EMELÉS
+#  WorkingDirectory atadasa: emeles utan is jo mappaban indul!
 # ===========================================================
 
 $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 $isAdmin          = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $isAdmin) {
-    # Tombot hasznalunk - egyszeru string szokoznél rosszul darabolja az utvonalakat!
-    $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-TargetDir", $TargetDir)
-    Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
+    $currentDir = (Get-Location).Path
+    $argList    = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath)
+    Start-Process powershell.exe -ArgumentList $argList -Verb RunAs -WorkingDirectory $currentDir
     exit 0
 }
 
@@ -41,7 +40,7 @@ if (-not $isAdmin) {
 #  BEÁLLÍTÁSOK
 # ===========================================================
  
-$script:Version        = "3.3.1"
+$script:Version        = "3.3.3"
 
 # ===========================================================
 #  SEGÉDFÜGGVÉNYEK
@@ -63,14 +62,26 @@ Write-Host "  |   DiagMailer - LOG Kuldes (jobb klikk)  |" -ForegroundColor Cyan
 Write-Host "  +==========================================+" -ForegroundColor Cyan
 Write-Host ""
 
-# ── 1. DiagMailer telepítési út olvasása a registry-ből ──────────
+# ── 1. Célmappa: $PWD-ből olvassuk (Set-Location-nal lett beállítva) ─
+$targetDir = (Get-Location).Path
+Write-Step "Cel mappa: $targetDir"
+
+if ([string]::IsNullOrWhiteSpace($targetDir) -or -not (Test-Path $targetDir)) {
+    Write-Fail "A cel mappa nem erheto el: $targetDir"
+    Write-Tip  "Probald meg kozvetlenul a DiagMailer mappajara jobb klikkelni"
+    Write-Host ""
+    Read-Host  "  [Enter] a kilepeshez"
+    exit 1
+}
+
+# ── 2. DiagMailer telepítési út registry-ből ─────────────────────────
 $regPath = "HKCU:\Software\DiagMailer"
 
 if (-not (Test-Path $regPath)) {
     Write-Fail "DiagMailer nincs telepitve a rendszerbe!"
     Write-Tip  "Futtasd a ContextMenuInstaller.ps1-et a telepiteshez."
     Write-Host ""
-    Read-Host "  [Enter] a kilepeshez"
+    Read-Host  "  [Enter] a kilepeshez"
     exit 1
 }
 
@@ -97,30 +108,12 @@ if (-not (Test-Path $sendScript)) {
 
 Write-OK "DiagMailer: $diagMailerRoot"
 
-# ── 2. Célmappa tisztítása (idézőjelek, szóközök) ──────────────────
-$targetClean = $TargetDir.Trim().Trim('"').Trim("'")
-
-# Ha fájlra kattintottak (nem mappára), a szülőmappát használjuk
-if (Test-Path $targetClean -PathType Leaf) {
-    $targetClean = Split-Path -Parent $targetClean
-}
-
-if (-not (Test-Path $targetClean)) {
-    Write-Fail "A cel mappa nem letezik: $targetClean"
-    Write-Host ""
-    Read-Host  "  [Enter] a kilepeshez"
-    exit 1
-}
-
-Write-Step "Cel mappa: $targetClean"
-
-# ── 3. LOG almappa keresése a kattintott mappában ─────────────────
-# Több névvariációt próbál, kis/nagybetű érzékeny rendszerek miatt
+# ── 3. LOG almappa keresése a célmappában ─────────────────────────────
 $logCandidates = @("LOG", "log", "Log", "Logs", "logs", "LOGS")
-$logFolder = $null
+$logFolder     = $null
 
 foreach ($name in $logCandidates) {
-    $candidate = Join-Path $targetClean $name
+    $candidate = Join-Path $targetDir $name
     if (Test-Path $candidate -PathType Container) {
         $logFolder = $candidate
         break
@@ -128,9 +121,9 @@ foreach ($name in $logCandidates) {
 }
 
 if (-not $logFolder) {
-    Write-Warn "Nem talalhato LOG almappa: $targetClean"
+    Write-Warn "Nem talalhato LOG almappa: $targetDir"
     Write-Tip  "Keresett nevek: $($logCandidates -join ', ')"
-    Write-Tip  "Ellenorizd, hogy a jobb klikk a megfelelo mappan tortent-e!"
+    Write-Tip  "Jobb klikkeld a projekted gyokermappajat, ahol a LOG mappa van!"
     Write-Host ""
     Read-Host  "  [Enter] a kilepeshez"
     exit 0
@@ -139,17 +132,16 @@ if (-not $logFolder) {
 Write-OK "LOG mappa: $logFolder"
 Write-Host ""
 
-# ── 4. SendReport.ps1 meghívása a talált LOG mappával ────────────
+# ── 4. SendReport.ps1 meghívása splatting-gal ────────────────────────
 Write-Step "SendReport.ps1 indul..."
 Write-Host ""
 
-# Splatting: szokos utvonalaknal biztonságos, nem darabolja fel a parametereket
 $sendParams = @{
     ConfigPath = $configPath
     LogFolder  = $logFolder
 }
 & $sendScript @sendParams
 
-# ── 5. Várakozás bezárás előtt ────────────────────────────────────
+# ── 5. Várakozás bezárás előtt ─────────────────────────────────────────
 Write-Host ""
 Read-Host "  [Enter] a bezarashoz"
