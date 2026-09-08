@@ -54,10 +54,15 @@ $script:Version        = "3.4.0"
 $SendReportScript      = Join-Path $PSScriptRoot "SendReport.ps1"
 $ManageCredScript      = Join-Path $PSScriptRoot "ManageCredential.ps1"
 $ContextMenuScript     = Join-Path $PSScriptRoot "ContextMenuInstaller.ps1"
+$ConfigScript          = Join-Path $PSScriptRoot "Config.ps1"
+$ConfigPath            = Join-Path $PSScriptRoot "config.json"
+$ConfigExample         = Join-Path $PSScriptRoot "config.json.example"
 
 function Write-Sep { Write-Host "  ------------------------------------------" -ForegroundColor DarkGray }
 function Write-Fail { param([string]$Msg) Write-Host "  XX $Msg" -ForegroundColor Red }
 function Write-Tip  { param([string]$Msg) Write-Host "     $Msg" -ForegroundColor DarkGray }
+function Write-OK   { param([string]$Msg) Write-Host "  OK $Msg" -ForegroundColor Green }
+function Write-Warn { param([string]$Msg) Write-Host "  !! $Msg" -ForegroundColor Yellow }
 
 # ===========================================================
 #  FÁJLOK MEGLÉTÉNEK ELLENŐRZÉSE
@@ -75,6 +80,47 @@ if ($missing.Count -gt 0) {
     Write-Tip "A DiagMailer telepitese hianyos lehet."
     Write-Host ""
     exit 1
+}
+
+# ===========================================================
+#  CONFIG.JSON ELLENŐRZÉSE - hiány esetén Config.ps1 felajánlása
+# ===========================================================
+
+if (-not (Test-Path $ConfigPath)) {
+    Write-Host ""
+    Write-Host "  +==========================================+" -ForegroundColor Yellow
+    Write-Host "  |   DiagMailer - Konfig nem talalhato!    |" -ForegroundColor Yellow
+    Write-Host "  +==========================================+" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Warn "config.json nem talalhato: $ConfigPath"
+
+    if (Test-Path $ConfigExample) {
+        Write-OK "config.json.example megtalalhato - automatikus beallitas elerheto"
+        Write-Host ""
+        $doSetup = Read-Host "  Futtassuk az automatikus beallito varazslot? [I/N]"
+        if ($doSetup -match "^[Ii]") {
+            if (Test-Path $ConfigScript) {
+                & $ConfigScript -ConfigPath $ConfigPath
+                # Config.ps1 Launcher-t is indit sikeres vegzodes utan - itt befejezzuk
+                exit 0
+            }
+            else {
+                Write-Fail "Config.ps1 nem talalhato: $ConfigScript"
+                Write-Tip  "Masold at a config.json.example fajlt config.json-ra es toltsd ki!"
+                exit 1
+            }
+        }
+        else {
+            Write-Tip "Masold at kezzel: config.json.example -> config.json"
+            Write-Tip "Toltsd ki az email- es SMTP-adatokat, majd futtasd ujra."
+            exit 0
+        }
+    }
+    else {
+        Write-Fail "config.json.example sem talalhato!"
+        Write-Tip  "Toltsd le ujra a DiagMailer csomagot."
+        exit 1
+    }
 }
 
 # ===========================================================
