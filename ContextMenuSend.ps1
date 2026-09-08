@@ -142,15 +142,29 @@ if (-not $logFolder) {
 Write-OK "LOG mappa: $logFolder"
 Write-Host ""
 
-# ── 4. SendReport.ps1 meghívása splatting-gal (szóközös utak is OK) ──
+# ── 4. Temp config létrehozása a LOG úttal ────────────────────────────
+# PARAMETERKENT ATADAS HELYETT: temp config-ba irjuk a logFolder-t!
+# Igy semmilyen parameteratadasi problema nem fordulhat elo,
+# es barmilyen SendReport.ps1 verzioVal mukodik.
 Write-Step "SendReport.ps1 indul..."
 Write-Host ""
 
-$sendParams = @{
-    ConfigPath = $configPath
-    LogFolder  = $logFolder
+$tempConfigPath = Join-Path $diagMailerRoot "temp_context_config.json"
+try {
+    # Eredeti config beolvasasa, logFolder felulirasa
+    $cfgObj = Get-Content $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $cfgObj | Add-Member -Force NotePropertyName logFolder -NotePropertyValue $logFolder
+    $cfgObj | ConvertTo-Json -Depth 10 | Set-Content $tempConfigPath -Encoding UTF8 -Force
+
+    # SendReport hivasa a temp config-gal - nincs parameteratadas, nincs szokozproblem!
+    & $sendScript -ConfigPath $tempConfigPath
 }
-& $sendScript @sendParams
+finally {
+    # Temp config mindig torlesre kerul
+    if (Test-Path $tempConfigPath) {
+        Remove-Item $tempConfigPath -Force -ErrorAction SilentlyContinue
+    }
+}
 
 # ── 5. Várakozás bezárás előtt ─────────────────────────────────────────
 Write-Host ""
