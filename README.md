@@ -11,8 +11,8 @@ Ideális MSP-k (Managed Service Provider), rendszergazdák és távoli ügyféls
 ```
 DiagMailer/
 
-├── Config.ps1                ← Az új konfigurációs motor. Interaktívan bekéri az SMTP és küldési adatokat, validálja a kapcsolatot,
-│                               létrehozza a végleges JSON-t, majd eltakarítja a szükségtelen mintafájlokat.
+├── Config.ps1                ← Az új konfigurációs motor. Interaktívan bekéri az SMTP és küldési adatokat,
+│                               validálja a kapcsolatot, létrehozza a végleges JSON-t, majd eltakarítja a szükségtelen mintafájlokat.
 ├── ContextMenuInstaller.ps1  ← 
 ├── ContextMenuSend.ps1       ← 
 ├── Invoke-DiagMailer.ps1     ← más REPÓ-kba kerülő hívó script
