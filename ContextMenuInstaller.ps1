@@ -66,7 +66,8 @@ $script:MenuLabel     = "LOG kuldese (DiagMailer)"
 $script:MenuIcon      = "powershell.exe,0"
 $script:RegKeys       = @(
     "Directory\shell\DiagMailer",
-    "Directory\Background\shell\DiagMailer"
+    "Directory\Background\shell\DiagMailer",
+    "*\shell\DiagMailer"
 )
 
 function Write-Step { param([string]$Msg) Write-Host "  -> $Msg" -ForegroundColor White }
@@ -243,10 +244,12 @@ function Invoke-Install {
 
     # 7. Registry - kontextusmenü bejegyzések (.NET API)
     # A TargetScript utvonalaban NINCS SZOKOZ - nem kell idezojel!
+    # Fajlra klikk: Split-Path adja a szulomappat, ott keresunk LOG almappat
     $HKCR = [Microsoft.Win32.Registry]::ClassesRoot
     $commands = @{
         "Directory\shell\DiagMailer"            = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -Command `"Set-Location '%1'; & '$script:TargetScript'`""
         "Directory\Background\shell\DiagMailer" = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -Command `"Set-Location '%V'; & '$script:TargetScript'`""
+        "*\shell\DiagMailer"                    = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -Command `"Set-Location (Split-Path '%1' -Parent); & '$script:TargetScript'`""
     }
 
     $allOk = $true
