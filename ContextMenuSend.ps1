@@ -153,7 +153,7 @@ $tempConfigPath = Join-Path $diagMailerRoot "temp_context_config.json"
 try {
     # Eredeti config beolvasasa, logFolder felulirasa
     $cfgObj = Get-Content $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
-    $cfgObj | Add-Member -Force NotePropertyName logFolder -NotePropertyValue $logFolder
+    $cfgObj | Add-Member -Force -NotePropertyName logFolder -NotePropertyValue $logFolder
     $cfgObj | ConvertTo-Json -Depth 10 | Set-Content $tempConfigPath -Encoding UTF8 -Force
 
     # SendReport hivasa a temp config-gal - nincs parameteratadas, nincs szokozproblem!
