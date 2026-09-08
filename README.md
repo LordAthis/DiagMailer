@@ -62,6 +62,17 @@ A repóban található fájlok szorosan együttműködnek a zökkenőmentes fut�
 | **`config.json.example`** | Sablon | Egy előre elkészített konfigurációs minta, amely bemutatja az SMTP szerverek és a célszemélyek beállítási sémáját. |
 
 ---
+| Fájlnév | Típus | Feladatkör és működési logika |
+| :--- | :--- | :--- |
+| **`Launcher.ps1`** | Fő belépési pont | A felhasználó vagy a helyi menü által hívott elsődleges script. Ellenőrzi a környezetet (PowerShell verzió, UAC státusz), ellenőrzi a `config.json` meglétét, szükség esetén meghívja a konfigurátort, feloldja a környezeti változókat, majd átadja a vezérlést a küldő magnak. |
+| **`Config.ps1`** | Konfigurációs motor | Az új, interaktív beállítófelület. Ha hiányzik a konfiguráció, ez kéri be az SMTP szerver, port, hitelesítési adatok, célemail és alapértelmezett mappa paramétereit. Élő SMTP tesztet végez, és sikeres kapcsolat esetén elmenti a végleges fájlt, miközben biztonsági okokból letörli a szükségtelen mintafájlokat. |
+| **`SendReport.ps1`** | Core / Motor | A program tényleges végrehajtója. Beolvassa a finomhangolt beállításokat, ellenőrzi a hálózati kapcsolatot, a célmappa létezését, létrehozza az egyedi névvel ellátott ZIP archívumot, összeállítja a HTML formátumú e-mailt, és elvégzi a kiküldést. |
+| **`ManageCredential.ps1`** | Biztonsági modul | A jelszavak biztonságos kezeléséért felelős háttérscript. Ez végzi a nyers jelszavak DPAPI formátumba kódolását a mentéskor, valamint a dekódolást a levélküldés pillanatában. |
+| **`ContextMenuInstaller.ps1`** | Telepítő script | Rendszergazdaként futtatva bejegyzi a DiagMailert a Windows Registry-be (`HKCU\Software\Classes\Directory\shell`), beállítja a jobb klikkes menüpont feliratát, ikonját és összeköti azt a végrehajtó scripttel. |
+| **`ContextMenuSend.ps1`** | Helyi menü vevő | A jobb klikkes indítás háttérkezelője. Amikor a felhasználó a Windows Intézőben vagy Total Commanderben a menüre kattint, ez a script kapja meg célobjektumként a kiválasztott mappa abszolút útvonalát, amit azonnal továbbít a `Launcher.ps1`-nek feldolgozásra. |
+| **`ContextMenuUninstaller.ps1`**| Eltávolító script | Maradványok nélkül tisztítja meg a Windows Registry-t. Törli a helyi menühöz kapcsolódó összes kulcsot és bejegyzést, ha az eszközt el szeretnénk távolítani a gépről. |
+
+---
 
 ## Első indítás
 
