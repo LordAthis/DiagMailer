@@ -49,7 +49,7 @@ if (-not $isAdmin) {
 #  BEÁLLÍTÁSOK
 # ===========================================================
 
-$script:Version        = "3.3.1"
+$script:Version        = "3.3.2"
 $script:ScriptDir     = $PSScriptRoot
 $script:SourceScript  = Join-Path $PSScriptRoot "ContextMenuSend.ps1"
 $script:TargetDir     = "$env:SystemRoot\Scripts"
@@ -205,9 +205,12 @@ function Invoke-Install {
     # HKCR direkt .NET-tel erhetjük el, nem fagyna be, mint a PS provider
     $HKCR = [Microsoft.Win32.Registry]::ClassesRoot
 
+    # -Command mod + single-quote: egyetlen megbizható módszer szóközös útvonalakhoz!
+    # -File modban a PowerShell.exe szóközön töri a %1 parametert az idézőjel ellenére is.
+    # Single-quote-ban a %1/%V tartalmát a PowerShell literálisan, szóközzel együtt kezeli.
     $commands = @{
-        "Directory\shell\DiagMailer"            = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script:TargetScript`" -TargetDir `"%1`""
-        "Directory\Background\shell\DiagMailer" = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script:TargetScript`" -TargetDir `"%V`""
+        "Directory\shell\DiagMailer"            = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -Command `"& '$script:TargetScript' -TargetDir '%1'`""
+        "Directory\Background\shell\DiagMailer" = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Normal -Command `"& '$script:TargetScript' -TargetDir '%V'`""
     }
 
     $allOk = $true
