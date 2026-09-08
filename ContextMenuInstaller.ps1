@@ -49,7 +49,7 @@ if (-not $isAdmin) {
 #  BEÁLLÍTÁSOK
 # ===========================================================
 
-$script:Version        = "3.3.3"
+$script:Version        = "3.3.4"
 $script:ScriptDir     = $PSScriptRoot
 $script:SourceScript  = Join-Path $PSScriptRoot "ContextMenuSend.ps1"
 $script:TargetDir     = "$env:SystemRoot\Scripts"
