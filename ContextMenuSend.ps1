@@ -34,8 +34,9 @@ $isAdmin          = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltI
 if (-not $isAdmin) {
     # Ha TargetDir ures, $PWD-bol olvassuk (az elso, nem emelt futasban Set-Location allitja be)
     $dirToPass = if ([string]::IsNullOrWhiteSpace($TargetDir)) { (Get-Location).Path } else { $TargetDir }
-    # Array-kent adjuk at: a tomb minden eleme klon argumentum - szokozos utvonal is OK!
-    $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-TargetDir", $dirToPass)
+    # FONTOS: a tomb elemeit Start-Process szokozzel fuzzi ossze idezojel NELKUL!
+    # Ezert a szokozos utvonalat explicit dupla idzeojelbe kell zarnunk a tomb elemen belul!
+    $argList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $PSCommandPath, "-TargetDir", "`"$dirToPass`"")
     Start-Process powershell.exe -ArgumentList $argList -Verb RunAs
     exit 0
 }
@@ -43,9 +44,8 @@ if (-not $isAdmin) {
 # ===========================================================
 #  BEÁLLÍTÁSOK
 # ===========================================================
- 
-$script:Version        = "3.3.4"
 
+$script:Version = "3.3.5"
 
 # ===========================================================
 #  SEGÉDFÜGGVÉNYEK
