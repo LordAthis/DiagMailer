@@ -1,8 +1,8 @@
-# DiagMailer
+# DiagMailer v3.5.0
 
-**Automatikus LOG összegyűjtő és emailben küldő – PowerShell, nulla telepítés**
+A **DiagMailer** egy Windows környezetre tervezett, hordozható (nulla telepítést igénylő) rendszergazdai és szerviz céleszköz. Elsődleges feladata, hogy a diagnosztikai és hibanaplókat (LOG fájlokat) egyetlen kattintással vagy automatizáltan összegyűjtse, ZIP archívumba tömörítse, majd titkosított SMTP kapcsolaton keresztül elküldje a megadott szerviz e-mail címre.
 
-Szervizes/MSP eszköz: bármely diagnosztikai/karbantartó REPÓ mellé téve összegyűjti a LOG mappát, ZIP-be csomagolja, és elküldi a konfigurált email címre. Minden beállítás JSON fájlban, jelszó DPAPI-titkosítva a helyi gépen.
+Ideális MSP-k (Managed Service Provider), rendszergazdák és távoli ügyfélszolgálatok számára a hibafeltárás gyorsítására.
 
 ---
 
@@ -10,12 +10,15 @@ Szervizes/MSP eszköz: bármely diagnosztikai/karbantartó REPÓ mellé téve ö
 
 ```
 DiagMailer/
-├── SendReport.ps1        ← fő logika (hívható közvetlenül is)
-├── Launcher.ps1          ← közvetlen belépési pont, jogosultság kezelés
-├── Invoke-DiagMailer.ps1 ← más REPÓ-kba kerülő hívó script
-├── config.json.example   ← sablon – ezt töltsd ki → config.json
-├── .gitignore            ← config.json KIMARAD a repóból!
-└── README.md
+├── ContextMenuInstaller.ps1  ← 
+├── ContextMenuSend.ps1       ← 
+├── Invoke-DiagMailer.ps1     ← más REPÓ-kba kerülő hívó script
+├── Launcher.ps1              ← közvetlen belépési pont, jogosultság kezelés
+├── ManageCredential.ps1      ← ...
+├── README.md                 ← Ez a leíró fájl
+├── SendReport.ps1            ← fő logika (hívható közvetlenül is)
+├── config.json.example       ← sablon – ezt töltsd ki → config.json
+└── .gitignore                ← Másolásból KIMARADÓ fájlok/mappák listája!
 ```
 
 **Integrált REPÓ-ban a várt szerkezet:**
@@ -30,14 +33,50 @@ BármelyRepó/
 
 ---
 
+## ✨ Főbb funkciók és jellemzők
+
+- **Automatikus Rendszergazda Mód (UAC):** A scriptek észlelik, ha emelt szintű jogosultság szükséges, és automatikusan rendszergazdaként indítják újra magukat.
+- **Biztonságos Hitelesítés (Windows DPAPI):** Az SMTP jelszót nem kell sima szövegként tárolni. A Windows Data Protection API segítségével a jelszó felhasználóhoz/géphez kötötten, visszafejthetetlenül titkosítva tárolódik.
+- **Környezeti változók támogatása:** A konfigurációs fájlban használhatók a Windows rendszerszintű változói (pl. `%USERPROFILE%`, `%APPDATA%`, `%SystemDrive%`), így a profilok univerzálisan teríthetők.
+- **Jobb klikkes (Helyi menü) integráció:** Az ügyfélnek el sem kell indítania a PowerShellt; a mappa felett jobb klikkel kattintva azonnal küldhető a tartalom.
+- **Robusztus hibakezelés:** Kezeli a szóközt tartalmazó útvonalakat, ellenőrzi a hálózati kapcsolatot és a konfiguráció érvényességét az indulás előtt.
+
+---
+
+## 📂 A projekt felépítése és a fájlok szerepe
+
+A repóban található fájlok szorosan együttműködnek a zökkenőmentes futás érdekében:
+
+| Fájlnév | Típus | Leírás és feladatkör |
+| :--- | :--- | :--- |
+| **`Launcher.ps1`** | Belépési pont | A felhasználó által indított fő script. Ellenőrzi a környezetet, feloldja az útvonalakat, majd átadja a vezérlést a háttérfolyamatnak. |
+| **`SendReport.ps1`** | Mag (Core) | A program motorja. Ez végzi a paraméterek feldolgozását, a JSON konfiguráció beolvasását, a naplók tömörítését és a levélküldést (SMTP). |
+| **`ContextMenuInstaller.ps1`** | Telepítő | Bejegyzi a DiagMailert a Windows Registry-be (`HKCU\Software\Classes\Directory\shell`), ezzel aktiválva a jobb klikkes küldést. |
+| **`ContextMenuUninstaller.ps1`**| Eltávolító | Maradványok nélkül törli a DiagMailer jobb klikkes menüpontját a Windows Registry-ből. |
+| **`config.json.example`** | Sablon | Egy előre elkészített konfigurációs minta, amely bemutatja az SMTP szerverek és a célszemélyek beállítási sémáját. |
+
+---
+
 ## Első indítás
 
-### 1. Config létrehozása
-```powershell
-Copy-Item DiagMailer\config.json.example DiagMailer\config.json
-notepad DiagMailer\config.json
+
+### 1. ⚙️ Konfiguráció (`config.json`)
+
+A program működését a `config.json` fájl vezérli. Másold le a `config.json.example` fájlt `config.json` néven, majd töltse ki az alábbi struktúra szerint:
+
+```json
+{
+  "SmtpServer": "://gmail.com",
+  "SmtpPort": 587,
+  "EnableSsl": true,
+  "SmtpUsername": "szerviz.kuldo@gmail.com",
+  "SmtpPassword": "TITKOSÍTOTT_VAGY_SIMA_JELSZÓ",
+  "IsPasswordEncrypted": false,
+  "TargetEmail": "lordathis@gmail.com",
+  "DefaultLogFolder": "%USERPROFILE%\\Downloads\\Micsi Pisti",
+  "ZipNameTemplate": "DiagLog_{ComputerName}_{Date}_{Time}.zip"
+}
 ```
-Kötelező kitölteni: `reportEmail`, `fromEmail`, `smtpServer`, `smtpPort`
 
 ### 2. Futtatás
 ```powershell
@@ -152,6 +191,46 @@ DiagMailer/config.json
 ```
 
 ---
+
+### Biztonságos jelszókezelés (Opcionális, de ajánlott)
+Ha az `IsPasswordEncrypted` értéke `false`, a script az első futás alkalmával beolvassa a sima szöveges jelszót, titkosítja azt a Windows DPAPI segítségével, visszaírja a fájlba a titkosított jelszót, az `IsPasswordEncrypted` értékét pedig automatikusan `true`-ra állítja. Így a jelszó többé nem látható nyers szövegként.
+
+---
+
+## 🚀 Használati módok
+
+A DiagMailer háromféleképpen is használható a rugalmasság érdekében:
+
+### 1. Interaktív futtatás (Manuális indítás)
+Ha simán elindítod a `Launcher.ps1`-et, az automatikusan a `config.json`-ban megadott `DefaultLogFolder` útvonalon lévő `LOG` mappát fogja feldolgozni.
+```powershell
+.\Launcher.ps1
+```
+
+### 2. Jobb klikkes (Helyi menü) használat – Az ügyfélbarát mód
+1. Futtasd egyszer a `ContextMenuInstaller.ps1` scriptet rendszergazdaként az ügyfél gépén.
+2. Ezután az ügyfélnek csak **jobb klikkel** rá kell kattintania arra a mappára (pl. `Micsi Pisti`), aminek a tartalmát el szeretné küldeni, és ki kell választania a **"DiagMailer - LOG Küldés"** opciót.
+3. A háttérben lefut a teljes folyamat, nincs szükség konzolos interakcióra.
+
+### 3. Parancssori paraméterezés (Automatizált / MSP környezet)
+A `Launcher.ps1` és a `SendReport.ps1` képes külső paramétereket is fogadni, így integrálható meglévő felügyeleti rendszerekbe (RMM) vagy ütemezett feladatokba:
+
+```powershell
+# Specifikus mappa küldése a beállított alapértelmezett helyett
+.\Launcher.ps1 -logFolder "C:\Különleges\Mappa\Elérési\Útja"
+
+# Küldés egyedi e-mail címre, felülbírálva a config.json-t
+.\Launcher.ps1 -targetEmail "masik-szerviz@domain.hu"
+```
+
+---
+
+## 🛠️ Követelmények
+
+- **Operációs rendszer:** Windows 7 / 8 / 10 / 11 vagy Windows Server
+- **Környezet:** Windows PowerShell 3.0 vagy újabb (alapértelmezetten kompatibilis a beépített PowerShell 5.1-gyel)
+- **Hálózat:** Kiinduló SMTP forgalom engedélyezése a megadott porton (587 vagy 465).
+
 
 ## Windows verzió kompatibilitás
 
