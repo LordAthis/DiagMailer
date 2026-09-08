@@ -3,6 +3,7 @@
 # SOHA ne kerüljön a repóba! Csak a .example marad meg.
 
 config.json
+credential.xml
 
 # Ideiglenes fájlok
 *.tmp
