@@ -16,7 +16,7 @@ DiagMailer/
 │                               a szükségtelen mintafájlokat.
 ├── ContextMenuInstaller.ps1  ← 
 ├── ContextMenuSend.ps1       ← 
-├── Invoke-DiagMailer.ps1     ← más REPÓ-kba kerülő hívó script
+├── InvokeDiagMailer.ps1     ← más REPÓ-kba kerülő hívó script
 ├── Launcher.ps1              ← közvetlen belépési pont, jogosultság kezelés
 ├── ManageCredential.ps1      ← ...
 ├── README.md                 ← Ez a leíró fájl
@@ -32,7 +32,7 @@ BármelyRepó/
 ├── DiagMailer/               ← ez a mappa
 │   ├── SendReport.ps1
 │   └── config.json           ← kitöltve, GITIGNORE-ban!
-└── Invoke-DiagMailer.ps1     ← menüből hívható integráció
+└── InvokeDiagMailer.ps1     ← menüből hívható integráció
 ```
 
 ---
@@ -61,8 +61,6 @@ A repóban található fájlok szorosan együttműködnek a zökkenőmentes fut�
 | **`ManageCredential.ps1`** | Biztonsági modul | A jelszavak biztonságos kezeléséért felelős háttérscript. Ez végzi a nyers jelszavak DPAPI formátumba kódolását a mentéskor, valamint a dekódolást a levélküldés pillanatában. |
 | **`ContextMenuInstaller.ps1`** | Telepítő script | Rendszergazdaként futtatva bejegyzi a DiagMailert a Windows Registry-be (`HKCU\Software\Classes\Directory\shell`), beállítja a jobb klikkes menüpont feliratát, ikonját és összeköti azt a végrehajtó scripttel. |
 | **`ContextMenuSend.ps1`** | Helyi menü vevő | A jobb klikkes indítás háttérkezelője. Amikor a felhasználó a Windows Intézőben vagy Total Commanderben a menüre kattint, ez a script kapja meg célobjektumként a kiválasztott mappa abszolút útvonalát, amit azonnal továbbít a `Launcher.ps1`-nek feldolgozásra. |
-| **`ContextMenuUninstaller.ps1`**| Eltávolító script | Maradványok nélkül tisztítja meg a Windows Registry-t. Törli a helyi menühöz kapcsolódó összes kulcsot és bejegyzést, ha az eszközt el szeretnénk távolítani a gépről. |
-
 
 ---
 
@@ -110,7 +108,7 @@ D. **Élő SMTP teszt és takarítás:** A megadott adatokkal a script azonnal l
 .\DiagMailer\SendReport.ps1
 
 # Más REPÓ-ból (automatikus letöltéssel):
-.\Invoke-DiagMailer.ps1
+.\InvokeDiagMailer.ps1
 ```
 
 Első futtatáskor bekéri az SMTP-jelszót, és rákérdez: **tartósan menti-e** (DPAPI-titkosítással, csak ez a Windows-felhasználó olvashatja vissza).
@@ -119,15 +117,9 @@ Első futtatáskor bekéri az SMTP-jelszót, és rákérdez: **tartósan menti-e
 
 ## Paraméterek
 
-### SendReport.ps1 / Launcher.ps1
 
-| Kapcsoló | Leírás |
-|---|---|
-| `-ConfigPath "C:\..."` | Egyedi config.json hely |
-| `-ForceCredential` | Figyelmen kívül hagyja a tárolt jelszót, újra bekéri |
-| `-DeleteLogsAfterSend` | Küldés után törli a LOG fájlokat |
 
-### Invoke-DiagMailer.ps1
+### InvokeDiagMailer.ps1
 
 | Kapcsoló | Leírás |
 |---|---|
@@ -189,7 +181,7 @@ Felhasználónév: a Brevo-fiókon generált SMTP API-kulcs
 
 ## Más REPÓ-kba való beépítés
 
-### 1. Másold be az Invoke-DiagMailer.ps1-t a REPÓ-ba
+### 1. Másold be az InvokeDiagMailer.ps1-t a REPÓ-ba
 
 ### 2. Írd át a GitHub URL-t benne:
 ```powershell
@@ -201,11 +193,11 @@ Felhasználónév: a Brevo-fiókon generált SMTP API-kulcs
 # Menü egyik menüpontja:
 "5" {
     Write-Host "Jelentés küldése..."
-    & "$PSScriptRoot\Invoke-DiagMailer.ps1"
+    & "$PSScriptRoot\InvokeDiagMailer.ps1"
 }
 
 # Vagy egy script végén automatikusan:
-& "$PSScriptRoot\Invoke-DiagMailer.ps1" -DeleteLogsAfterSend
+& "$PSScriptRoot\InvokeDiagMailer.ps1" -DeleteLogsAfterSend
 ```
 
 ### 4. Vedd fel a .gitignore-ba:
@@ -215,7 +207,7 @@ DiagMailer/config.json
 
 ---
 
-### Biztonságos jelszókezelés (Opcionális, de ajánlott)
+### Biztonságos jelszókezelés (Opcionális lesz, még meg nem valósított)
 Ha az `IsPasswordEncrypted` értéke `false`, a script az első futás alkalmával beolvassa a sima szöveges jelszót, titkosítja azt a Windows DPAPI segítségével, visszaírja a fájlba a titkosított jelszót, az `IsPasswordEncrypted` értékét pedig automatikusan `true`-ra állítja. Így a jelszó többé nem látható nyers szövegként.
 
 ---
