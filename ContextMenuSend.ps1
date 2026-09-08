@@ -131,9 +131,18 @@ foreach ($name in $logCandidates) {
 }
 
 if (-not $logFolder) {
-    Write-Warn "Nem talalhato LOG almappa: $TargetDir"
+    # Ha magara a LOG mappara kattintottak, hasznaljuk azt kozvetlenul
+    $folderLeaf = Split-Path $TargetDir -Leaf
+    if ($logCandidates -contains $folderLeaf) {
+        Write-Step "A cel mappa maga a LOG mappa - kozvetlenul hasznalom"
+        $logFolder = $TargetDir
+    }
+}
+
+if (-not $logFolder) {
+    Write-Warn "Nem talalhato LOG mappa: $TargetDir"
     Write-Tip  "Keresett nevek: $($logCandidates -join ', ')"
-    Write-Tip  "Jobb klikkeld a projekted gyokermappajat, ahol a LOG mappa van!"
+    Write-Tip  "Probald meg a LOG mappa szulomappajara kattintani!"
     Write-Host ""
     Read-Host  "  [Enter] a kilepeshez"
     exit 0
