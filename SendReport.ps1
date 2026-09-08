@@ -50,7 +50,7 @@ if (-not $isAdmin) {
 # ===========================================================
 
 $ErrorActionPreference = "Stop"
-$script:Version        = "3.3.1"
+$script:Version        = "3.3.4"
 $script:CredStorePath  = "$env:LOCALAPPDATA\DiagMailer\credential.xml"
 $script:ZipPath        = $null
 
