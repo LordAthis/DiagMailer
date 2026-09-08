@@ -26,6 +26,8 @@ param(
 #  BEÁLLÍTÁSOK
 # ===========================================================
 
+$script:Version       = "3.4.0"
+
 $script:CredStorePath = "$env:LOCALAPPDATA\DiagMailer\credential.xml"
 
 function Write-Step { param([string]$Msg) Write-Host "  -> $Msg" -ForegroundColor White }
