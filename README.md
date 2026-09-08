@@ -10,6 +10,9 @@ Ideális MSP-k (Managed Service Provider), rendszergazdák és távoli ügyféls
 
 ```
 DiagMailer/
+
+├── Config.ps1                ← Az új konfigurációs motor. Interaktívan bekéri az SMTP és küldési adatokat, validálja a kapcsolatot,
+│                               létrehozza a végleges JSON-t, majd eltakarítja a szükségtelen mintafájlokat.
 ├── ContextMenuInstaller.ps1  ← 
 ├── ContextMenuSend.ps1       ← 
 ├── Invoke-DiagMailer.ps1     ← más REPÓ-kba kerülő hívó script
@@ -40,6 +43,8 @@ BármelyRepó/
 - **Környezeti változók támogatása:** A konfigurációs fájlban használhatók a Windows rendszerszintű változói (pl. `%USERPROFILE%`, `%APPDATA%`, `%SystemDrive%`), így a profilok univerzálisan teríthetők.
 - **Jobb klikkes (Helyi menü) integráció:** Az ügyfélnek el sem kell indítania a PowerShellt; a mappa felett jobb klikkel kattintva azonnal küldhető a tartalom.
 - **Robusztus hibakezelés:** Kezeli a szóközt tartalmazó útvonalakat, ellenőrzi a hálózati kapcsolatot és a konfiguráció érvényességét az indulás előtt.
+- **Zero-Configuration indítás:** Nem kell előre kézzel másolgatni és szerkeszteni a JSON-t. Ha hiányzik a konfiguráció, a `Launcher.ps1` automatikusan elindítja a beépített varázslót (`Config.ps1`), amely bekéri az adatokat, leteszteli a működésüket, majd élesíti a rendszert.
+
 
 ---
 
@@ -60,7 +65,7 @@ A repóban található fájlok szorosan együttműködnek a zökkenőmentes fut�
 ## Első indítás
 
 
-### 1. ⚙️ Konfiguráció (`config.json`)
+### 1.a. ⚙️ Konfiguráció (`config.json`)
 
 A program működését a `config.json` fájl vezérli. Másold le a `config.json.example` fájlt `config.json` néven, majd töltse ki az alábbi struktúra szerint:
 
@@ -77,6 +82,20 @@ A program működését a `config.json` fájl vezérli. Másold le a `config.jso
   "ZipNameTemplate": "DiagLog_{ComputerName}_{Date}_{Time}.zip"
 }
 ```
+### 1.b. ⚙️ Első indítás és Automatikus Konfiguráció (`Config.ps1`)
+
+A **DiagMailer v3.5.0**-tól kezdve a beállítás teljesen automatizált. Nem szükséges a `config.json.example` fájlt manuálisan átnevezni vagy szerkeszteni.
+
+A. **Egyszerűen indítsd el a fő scriptet:**
+   ```powershell
+   .\Launcher.ps1
+   ```
+B. **Automatikus ellenőrzés:** A `Launcher.ps1` induláskor megnézi, hogy létezik-e már érvényes `config.json`. 
+C. **Konfigurációs varázsló:** Ha nem találja, a háttérben meghívja a `Config.ps1` scriptet, ami interaktívan bekéri a szükséges adatokat (SMTP szerver, port, küldő adatok, cél e-mail és alapértelmezett LOG mappa).
+D. **Élő SMTP teszt és takarítás:** A megadott adatokkal a script azonnal lefutat egy élő működési tesztet. 
+   - **Ha a teszt sikeres:** Menti a beállításokat a végleges `config.json`-ba, biztonsági okokból **automatikusan letörli a mintaként szolgáló `.example` fájlt**, majd zökkenőmentesen folytatja a futást.
+   - **Ha a teszt sikertelen:** Nem ment hibás adatot, hanem addig korrigálhatod a beállításokat, amíg a kapcsolat össze nem jön.
+
 
 ### 2. Futtatás
 ```powershell
